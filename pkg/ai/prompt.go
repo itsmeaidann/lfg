@@ -141,5 +141,7 @@ YOUR TODO:
 - ONLY OUTPUT with type "NOT_ENOUGH_TOOLS" IF all of our tools are not enough to perform the user strategy.
 - otherwise, output with type "FEEDBACK" to tell what is wrong or missing in the execution plan.
 - be brief, concise, and to the point.
+
+USER COMMENT: "%s"
 `
 )
