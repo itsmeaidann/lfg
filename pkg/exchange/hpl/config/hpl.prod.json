@@ -1,0 +1,5 @@
+{
+  "apiUrl": "https://api.hyperliquid.xyz",
+  "wsUrl": "wss://api.hyperliquid.xyz/ws",
+  "chainId": 1337
+}

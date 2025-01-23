@@ -1,0 +1,10 @@
+exchange:
+    bnfagent0: # id for application reference
+        exchange: bnf # must be `bnf` for binance future exchange
+        envPrefix: BNF # prefix matching with .env settings
+        subAccountId: 0 # exchange subaccount
+agent:
+    agent0:
+        exchange: 
+        - bnfagent0
+        prompt: "Open a long position with $500 USD if the 9/26 moving average crosses upwards on a 15-minute timeframe, and open a short position with $500 USD if the moving average crosses downwards."
