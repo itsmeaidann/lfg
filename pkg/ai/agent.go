@@ -62,7 +62,7 @@ func (a *Agent) Plan(ctx context.Context) error {
 	var userNoComment bool = false
 
 	// refine execution plan until it is correct or max refine count is reached
-	for !refined && refineCount < maxRefineCount {
+	for !refined && refineCount <= maxRefineCount {
 		var err error
 		// generate execution plan
 		plan, err = GenerateExecutionPlan(ctx, OpenAIClient, availableExchangesId, a.Prompt, prevMessages)
@@ -73,18 +73,8 @@ func (a *Agent) Plan(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		jsonTasks, err := json.MarshalIndent(plan.Tasks, "", "  ")
-		if err != nil {
-			return err
-		}
-		jsonInitState, err := json.MarshalIndent(plan.InitState, "", "  ")
-		if err != nil {
-			return err
-		}
 		// log initial reasoning and plan
-		a.logger.Infof("Initial Reasoning #%v: \n%v\n", refineCount+1, plan.Reasoning)
-		a.logger.Infof("Initial Tasks #%v: \n%v\n", refineCount+1, string(jsonTasks))
-		a.logger.Infof("Initial State #%v: \n%v\n", refineCount+1, string(jsonInitState))
+		a.logger.Infof("Round %v: \n%v\n", refineCount+1, GetReadablePlan(plan))
 
 		// wait for user comment through stdin
 		userComment := "NO COMMENT"
@@ -127,9 +117,8 @@ func (a *Agent) Plan(ctx context.Context) error {
 	// if refined successfully, store the tasks and initiate memory
 	if refined {
 		a.logger.Infof("Storing tasks...")
-		a.logger.Infof("Tasks: %v", plan.Tasks)
 		a.logger.Infof("Initiating memory...")
-		a.logger.Infof("InitState: %v", plan.InitState)
+		a.logger.Infof("Plan: \n%v\n", GetReadablePlan(plan))
 		for _, task := range plan.Tasks {
 			task, err := GetTaskByName(task.Name, task.Parameters)
 			if err != nil {
@@ -159,5 +148,7 @@ func (a *Agent) Execute(ctx context.Context) error {
 		a.logger.Infof("Task %v executed successfully", task.Name)
 	}
 
+	// last memory update log
+	a.logger.Infof("final memory state: %v", a.Memory.Data)
 	return nil
 }

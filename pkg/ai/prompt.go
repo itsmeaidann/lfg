@@ -45,7 +45,7 @@ AVAILABLE EXCHANGES:
 you MUST make sure that your output is valid to be executed based on AVAILABLE TOOLS provided below. 
 Remember that parameters should be valid keys in the memory not the value.
 
-Show your REASONING in the output step by step like:
+Show your REASONING in the output clear and brief while still answer the following questions:
 - What strategy user wants to perform?
 - What tools are needed to perform the strategy?
 - What parameters are needed for the tools?
@@ -73,18 +73,17 @@ For example:
 	  	- dataKeys: "["position", "price"]"
 		- question: "Determine the amount of BTC to buy based on user query: Buy 100 USDT of BTC every 1 minute"
 		- outputKey: "amount"
-	- openPositionIf:
+	- openLongPositionIf:
 	  - Parameters:
 	  	- ifKey: position
 		- ifValue: 0
 	  	- symbolKey: symbol
-		- sideKey: side
-		- amountKey: amount
+		- amountUsdKey: amount
 </example>
 
 IMPORTANT:
 - You MUST make sure that your output is valid to be executed based on AVAILABLE TOOLS provided below.
-- You MUST output in your reasoning the step for these tasks to be executed and how does parameters works after each tool execution.
+- You MUST output brief and clear reasoning (the step for these tasks to be executed and how does parameters works after each tool execution).
 - All data in memory whether it's a output or input is a string.
 `
 
@@ -116,7 +115,6 @@ AVAILABLE TOOLS:
 %s
 <end>
 
-
 CURRENT TASKS DESIGNED:
 <start>
 %s
@@ -130,7 +128,7 @@ AVAILABLE EXCHANGES ID:
 <end>
 
 Note that the AVAILABLE_EXCHANGES_ID is the list of the exchange ids that the user can choose from.
-and for the symbol, it must be in the format of "TICKER_USD"
+and for the value of symbol, it must be in the format of "TICKER_USD" while key can of course be anything.
 
 YOUR TODO:
 - check if the current plan is valid given the AVAILABLE TOOLS provided.
@@ -142,6 +140,8 @@ YOUR TODO:
 - otherwise, output with type "FEEDBACK" to tell what is wrong or missing in the execution plan.
 - be brief, concise, and to the point.
 
-USER COMMENT: "%s"
+USER LATEST COMMENT: "%s"
+
+MOST IMPORTANT: You MUST make sure that your feedback is correct and valid. that it really is a problem that needed to be fixed.
 `
 )

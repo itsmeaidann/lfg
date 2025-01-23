@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"lfg/pkg/indicator"
+	"lfg/pkg/types"
 	"strings"
 )
 
@@ -92,7 +93,6 @@ func (t *GetKlineTask) Execute(ctx context.Context, memory *AgentMemory) error {
 // MARK: GetMovingAverageTask
 type GetMovingAverageTask struct {
 	KlineKey  string `json:"klineKey"`
-	WindowKey string `json:"windowKey"`
 	OutputKey string `json:"outputKey"`
 }
 
@@ -102,15 +102,31 @@ func (t *GetMovingAverageTask) Execute(ctx context.Context, memory *AgentMemory)
 	if err != nil {
 		return err
 	}
-	// calculate moving average
-	window, err := memory.GetAsInt(t.WindowKey)
+
+	maValues := indicator.CalculateMovingAverage(klines, int(len(klines)/2))
+	// write result to memory
+	memory.SetAsStr(t.OutputKey, maValues)
+	return nil
+}
+
+// MARK: GetBollingerBandTask
+type GetBollingerBandTask struct {
+	KlineKey  string `json:"klineKey"`
+	OutputKey string `json:"outputKey"`
+}
+
+func (t *GetBollingerBandTask) Execute(ctx context.Context, memory *AgentMemory) error {
+
+	klines, err := memory.GetAsKlines(t.KlineKey)
 	if err != nil {
 		return err
 	}
 
-	maValues := indicator.CalculateMovingAverage(klines, window)
-	// write result to memory
-	memory.SetAsStr(t.OutputKey, maValues)
+	bollingerBand, err := indicator.CalculateBollingerBand(klines, int(len(klines)/2), 2)
+	if err != nil {
+		return err
+	}
+	memory.SetAsStr(t.OutputKey, bollingerBand)
 	return nil
 }
 
@@ -148,6 +164,104 @@ func (t *AskAITask) Execute(ctx context.Context, memory *AgentMemory) error {
 	return nil
 }
 
+// MARK: openLongPositionTask
+type OpenMarketLongPositionIfTask struct {
+	IfKey         string `json:"ifKey"`
+	IfValue       string `json:"ifValue"`
+	AmountUsdKey  string `json:"amountUsdKey"`
+	SymbolKey     string `json:"symbolKey"`
+	ExchangeIdKey string `json:"exchangeIdKey"`
+}
+
+func (t *OpenMarketLongPositionIfTask) Execute(ctx context.Context, memory *AgentMemory) error {
+	ifValue, err := memory.GetAsStr(t.IfKey)
+	if err != nil {
+		return err
+	}
+	if ifValue != t.IfValue {
+		return nil
+	}
+
+	amountUsd, err := memory.GetAsFloat64(t.AmountUsdKey)
+	if err != nil {
+		return err
+	}
+	symbol, err := memory.GetAsStr(t.SymbolKey)
+	if err != nil {
+		return err
+	}
+	exchangeId, err := memory.GetAsStr(t.ExchangeIdKey)
+	if err != nil {
+		return err
+	}
+
+	klines, err := (*memory.Exchanges[exchangeId]).GetKLines(symbol, types.Interval1m, 1)
+	if err != nil {
+		return err
+	}
+	price := klines[len(klines)-1].Kline.C
+
+	amount := amountUsd / price
+
+	// TODO: make leverage dynamic
+	lev := 5
+	err = (*memory.Exchanges[exchangeId]).OpenMarketOrder(symbol, types.OrderSideBuy, amount, lev, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// MARK: openShortPositionTask
+type OpenMarketShortPositionIfTask struct {
+	IfKey         string `json:"ifKey"`
+	IfValue       string `json:"ifValue"`
+	AmountUsdKey  string `json:"amountUsdKey"`
+	SymbolKey     string `json:"symbolKey"`
+	ExchangeIdKey string `json:"exchangeIdKey"`
+}
+
+func (t *OpenMarketShortPositionIfTask) Execute(ctx context.Context, memory *AgentMemory) error {
+	ifValue, err := memory.GetAsStr(t.IfKey)
+	if err != nil {
+		return err
+	}
+	if ifValue != t.IfValue {
+		return nil
+	}
+
+	amountUsd, err := memory.GetAsFloat64(t.AmountUsdKey)
+	if err != nil {
+		return err
+	}
+	symbol, err := memory.GetAsStr(t.SymbolKey)
+	if err != nil {
+		return err
+	}
+	exchangeId, err := memory.GetAsStr(t.ExchangeIdKey)
+	if err != nil {
+		return err
+	}
+
+	klines, err := (*memory.Exchanges[exchangeId]).GetKLines(symbol, types.Interval1m, 1)
+	if err != nil {
+		return err
+	}
+	price := klines[len(klines)-1].Kline.C
+
+	amount := amountUsd / price
+
+	// TODO: make leverage dynamic
+	lev := 5
+	err = (*memory.Exchanges[exchangeId]).OpenMarketOrder(symbol, types.OrderSideSell, amount, lev, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // MARK: allTasks
 func GetAllTasks() []AgentTask {
 	return []AgentTask{
@@ -171,7 +285,6 @@ func GetAllTasks() []AgentTask {
 				Description: "Get the moving average of the asset using kline from klineKey and store the moving average in outputKey. Note that the kline is a list of kline events and if the window is equal to the length of the kline, the moving average will only have last value",
 				Parameters: map[string]string{
 					"klineKey":  "the key of the kline value in the memory",
-					"windowKey": "the key of the window value in the memory ex. 'window1' : '20'",
 					"outputKey": "the key of the output value in the memory as []float64",
 				},
 			},
@@ -182,12 +295,51 @@ func GetAllTasks() []AgentTask {
 				Name:        "askAI",
 				Description: "Ask the AI to answer a question along with the available data in dataKeys and store the answer in outputKey",
 				Parameters: map[string]string{
-					"promptKey": "the key of the prompt to be asked to the AI in the memory. be specific and clear",
+					"promptKey": "the key of the prompt to be asked to the AI in the memory. be specific and clear. u should clearly outline the output format",
 					"dataKeys":  "the keys of the data values in the memory separated by comma ex. 'data1,data2,data3'",
 					"outputKey": "the key of the output value in the memory",
 				},
 			},
 			Executable: &AskAITask{},
+		},
+		{
+			BaseTask: BaseTask{
+				Name:        "getBollingerBand",
+				Description: "Get the bollinger band of the asset using kline from klineKey and store the bollinger band in outputKey",
+				Parameters: map[string]string{
+					"klineKey":  "the key of the kline value in the memory",
+					"outputKey": "the key of the output value in the memory as []float64",
+				},
+			},
+			Executable: &GetBollingerBandTask{},
+		},
+		{
+			BaseTask: BaseTask{
+				Name:        "openLongPositionIf",
+				Description: "Open a long position of the symbolKey using amountUsd from amountUsdKey IF the value of ifKey in the memory is equal to ifValue",
+				Parameters: map[string]string{
+					"ifKey":         "the key of the if value in the memory",
+					"ifValue":       "the value of the if value in the memory",
+					"amountUsdKey":  "the key of the amount usd position size in the memory",
+					"symbolKey":     "the key of the symbol value in the memory (format 'TICKER_USD' not 'TICKER_USDT')",
+					"exchangeIdKey": "the key of the exchange id value in the memory that is set by the agent",
+				},
+			},
+			Executable: &OpenMarketLongPositionIfTask{},
+		},
+		{
+			BaseTask: BaseTask{
+				Name:        "openShortPositionIf",
+				Description: "Open a short position of the symbolKey using amountUsd from amountUsdKey IF the value of ifKey in the memory is equal to ifValue",
+				Parameters: map[string]string{
+					"ifKey":         "the key of the if value in the memory",
+					"ifValue":       "the value of the if value in the memory",
+					"amountUsdKey":  "the key of the amount usd position size in the memory",
+					"symbolKey":     "the key of the symbol value in the memory (format 'TICKER_USD' not 'TICKER_USDT')",
+					"exchangeIdKey": "the key of the exchange id value in the memory that is set by the agent",
+				},
+			},
+			Executable: &OpenMarketShortPositionIfTask{},
 		},
 	}
 }

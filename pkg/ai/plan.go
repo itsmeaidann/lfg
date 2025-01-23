@@ -163,3 +163,20 @@ func GetCompletion(ctx context.Context, client *openai.Client, prompt string) (s
 	}
 	return chatCompletion.Choices[0].Message.Content, nil
 }
+
+func GetReadablePlan(plan ExecutionPlan) string {
+	str := fmt.Sprintf("Reasoning: %s\n\nTasks:", plan.Reasoning)
+	for _, task := range plan.Tasks {
+		str += fmt.Sprintf("\n\t- %s", task.Name)
+		for key, value := range task.Parameters {
+			str += fmt.Sprintf("\n\t\t- %s: %s", key, value)
+		}
+	}
+
+	str += "\nInitState:"
+	for _, state := range plan.InitState {
+		str += fmt.Sprintf("\n- %s: %s", state.Key, state.Value)
+	}
+	str += "\n\n"
+	return str
+}

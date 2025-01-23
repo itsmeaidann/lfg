@@ -15,5 +15,11 @@ func CalculateMovingAverage(klines []types.KLineEvent, window int) []float64 {
 		}
 		maValues[i-window+1] = sum / float64(window)
 	}
+
+	// flip the array
+	for i := 0; i < len(maValues)/2; i++ {
+		j := len(maValues) - i - 1
+		maValues[i], maValues[j] = maValues[j], maValues[i]
+	}
 	return maValues
 }
