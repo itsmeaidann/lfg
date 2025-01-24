@@ -6,7 +6,7 @@ import (
 )
 
 type ExecutionPlan struct {
-	Reasoning string       `json:"Reasoning" jsonschema_description:"The reasoning of your logic. How does the tasks works and how does the parameters works after each tool execution."`
+	Reasoning string       `json:"Reasoning" jsonschema_description:"The brief and clear reasoning of your logic. How does the tasks works and how does the parameters works after each tool execution."`
 	Tasks     []TaskFromAI `json:"Tasks" jsonschema_description:"The tasks to be executed periodically for the trading strategy"`
 	InitState []Memory     `json:"InitState" jsonschema_description:"The initial state of the trading strategy"`
 }
