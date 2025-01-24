@@ -2,16 +2,16 @@ package core
 
 import (
 	"lfg/config"
-	"lfg/pkg/ai"
+	"lfg/pkg/ai/agent"
 	"lfg/pkg/exchange"
 )
 
 var Exchanges map[string]*exchange.Exchange
-var Agents map[string]*ai.Agent
+var Agents map[string]*agent.UserAgent
 
 func init() {
 	Exchanges = make(map[string]*exchange.Exchange)
-	Agents = make(map[string]*ai.Agent)
+	Agents = make(map[string]*agent.UserAgent)
 }
 
 func RegisterAgent(agentId string, prompt string, exchangeIds []string) error {
@@ -21,7 +21,7 @@ func RegisterAgent(agentId string, prompt string, exchangeIds []string) error {
 			agentExchanges[exchangeId] = exchange
 		}
 	}
-	agent, err := ai.NewAgent(agentId, prompt, agentExchanges)
+	agent, err := agent.NewUserAgent(agentId, prompt, agentExchanges)
 	if err != nil {
 		return err
 	}

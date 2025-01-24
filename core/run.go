@@ -3,7 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
-	"lfg/pkg/ai"
+	"lfg/pkg/ai/agent"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -14,14 +14,14 @@ func Run(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(Agents))
-	for _, agent := range Agents {
+	for _, ag := range Agents {
 		wg.Add(1)
-		go func(agent *ai.Agent) {
+		go func(ag *agent.UserAgent) {
 			defer wg.Done()
-			if err := agent.Execute(ctx); err != nil {
+			if err := ag.Execute(ctx); err != nil {
 				errChan <- err
 			}
-		}(agent)
+		}(ag)
 	}
 	go func() {
 		wg.Wait()
