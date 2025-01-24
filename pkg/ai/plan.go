@@ -164,6 +164,46 @@ func GetCompletion(ctx context.Context, client *openai.Client, prompt string) (s
 	return chatCompletion.Choices[0].Message.Content, nil
 }
 
+func GetStructuredCompletion(ctx context.Context, client *openai.Client, prompt string) (map[string]string, error) {
+
+	var schema, _ = GenerateSchema[map[string]string]()
+	chatCompletion, err := client.Chat.Completions.New(
+		ctx,
+		openai.ChatCompletionNewParams{
+			Messages: openai.F([]openai.ChatCompletionMessageParamUnion{
+				openai.UserMessage(prompt),
+			}),
+			ResponseFormat: openai.F[openai.ChatCompletionNewParamsResponseFormatUnion](
+				openai.ResponseFormatJSONSchemaParam{
+					Type: openai.F(openai.ResponseFormatJSONSchemaTypeJSONSchema),
+					JSONSchema: openai.F(
+						openai.ResponseFormatJSONSchemaJSONSchemaParam{
+							Name:        openai.F("JSON Response"),
+							Description: openai.F("The JSON response from the AI"),
+							Schema:      openai.F(schema),
+						},
+					),
+				},
+			),
+			Model:       openai.F("openai/gpt-4o-mini"),
+			Temperature: openai.F(0.23),
+		},
+	)
+	if err != nil {
+		return map[string]string{}, err
+	}
+	if len(chatCompletion.Choices) == 0 {
+		return map[string]string{}, fmt.Errorf("no completion found")
+	}
+	var jsonRes map[string]string
+
+	err = json.Unmarshal([]byte(chatCompletion.Choices[0].Message.Content), &jsonRes)
+	if err != nil {
+		return map[string]string{}, err
+	}
+	return jsonRes, nil
+}
+
 func GetReadablePlan(plan ExecutionPlan) string {
 	str := fmt.Sprintf("Reasoning: %s\n\nTasks:", plan.Reasoning)
 	for _, task := range plan.Tasks {

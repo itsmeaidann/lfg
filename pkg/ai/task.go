@@ -132,18 +132,14 @@ func (t *GetBollingerBandTask) Execute(ctx context.Context, memory *AgentMemory)
 
 // MARK: AskAITask
 type AskAITask struct {
-	PromptKey string `json:"promptKey"`
+	Prompt    string `json:"prompt"`
 	DataKeys  string `json:"dataKeys"`
 	OutputKey string `json:"outputKey"`
 }
 
 func (t *AskAITask) Execute(ctx context.Context, memory *AgentMemory) error {
-	prompt, err := memory.GetAsStr(t.PromptKey)
-	if err != nil {
-		return err
-	}
+	prompt := `\n\nAVAILABLE DATA:\n`
 
-	prompt += `\n\nAVAILABLE DATA:\n`
 	dataKeys := strings.Split(t.DataKeys, ",")
 	for _, dataKey := range dataKeys {
 		data, err := memory.GetAsStr(dataKey)
@@ -152,6 +148,9 @@ func (t *AskAITask) Execute(ctx context.Context, memory *AgentMemory) error {
 		}
 		prompt += fmt.Sprintf("- %s: %s\n", dataKey, data)
 	}
+	prompt += "\n\nUSER INSTRUCTION: " + t.Prompt
+
+	prompt += "\nIMPORTANT: YOUR OUTPUT WILL BE USED TO SET AS A STR IN THE MEMORY AND USED FURTHER. FOLLOW FORMAT IN THE INSTRUCTION STRICTLY"
 
 	aiResponse, err := GetCompletion(ctx, OpenAIClient, prompt)
 	if err != nil {
@@ -164,7 +163,40 @@ func (t *AskAITask) Execute(ctx context.Context, memory *AgentMemory) error {
 	return nil
 }
 
-// MARK: openLongPositionTask
+// MARK: AISetMemoryTask
+type AISetMemoryTask struct {
+	Prompt   string `json:"prompt"`
+	DataKeys string `json:"dataKeys"`
+	Output   string `json:"output"`
+}
+
+func (t *AISetMemoryTask) Execute(ctx context.Context, memory *AgentMemory) error {
+
+	prompt := `\n\nAVAILABLE DATA:\n`
+	dataKeys := strings.Split(t.DataKeys, ",")
+	for _, dataKey := range dataKeys {
+		data, err := memory.GetAsStr(dataKey)
+		if err != nil {
+			return err
+		}
+		prompt += fmt.Sprintf("- %s: %s\n", dataKey, data)
+	}
+	prompt += "\n\nUSER INSTRUCTION: " + t.Prompt
+	prompt += "\nIMPORTANT: YOUR OUTPUT WILL BE USED TO SET AS A JSON IN THE MEMORY AND USED FURTHER. FOLLOW FORMAT IN THE INSTRUCTION STRICTLY"
+
+	aiResponse, err := GetStructuredCompletion(ctx, OpenAIClient, prompt)
+	if err != nil {
+		return err
+	}
+	fmt.Println("aiResponse: ", aiResponse)
+
+	for key, value := range aiResponse {
+		memory.SetAsStr(key, value)
+	}
+	return nil
+}
+
+// MARK: openMarketLongPositionTask
 type OpenMarketLongPositionIfTask struct {
 	IfKey         string `json:"ifKey"`
 	IfValue       string `json:"ifValue"`
@@ -213,7 +245,7 @@ func (t *OpenMarketLongPositionIfTask) Execute(ctx context.Context, memory *Agen
 	return nil
 }
 
-// MARK: openShortPositionTask
+// MARK: openMarketShortPositionTask
 type OpenMarketShortPositionIfTask struct {
 	IfKey         string `json:"ifKey"`
 	IfValue       string `json:"ifValue"`
@@ -262,6 +294,104 @@ func (t *OpenMarketShortPositionIfTask) Execute(ctx context.Context, memory *Age
 	return nil
 }
 
+// MARK: openLimitLongPositionTask
+type OpenLimitLongPositionIfTask struct {
+	IfKey         string `json:"ifKey"`
+	IfValue       string `json:"ifValue"`
+	PriceKey      string `json:"priceKey"`
+	AmountUsdKey  string `json:"amountUsdKey"`
+	SymbolKey     string `json:"symbolKey"`
+	ExchangeIdKey string `json:"exchangeIdKey"`
+}
+
+func (t *OpenLimitLongPositionIfTask) Execute(ctx context.Context, memory *AgentMemory) error {
+	ifValue, err := memory.GetAsStr(t.IfKey)
+	if err != nil {
+		return err
+	}
+	if ifValue != t.IfValue {
+		return nil
+	}
+
+	amountUsd, err := memory.GetAsFloat64(t.AmountUsdKey)
+	if err != nil {
+		return err
+	}
+	symbol, err := memory.GetAsStr(t.SymbolKey)
+	if err != nil {
+		return err
+	}
+	exchangeId, err := memory.GetAsStr(t.ExchangeIdKey)
+	if err != nil {
+		return err
+	}
+
+	price, err := memory.GetAsFloat64(t.PriceKey)
+	if err != nil {
+		return err
+	}
+
+	amount := amountUsd / price
+
+	// TODO: make leverage dynamic
+	lev := 5
+	_, err = (*memory.Exchanges[exchangeId]).OpenLimitOrder(symbol, types.OrderSideBuy, price, amount, lev, false, types.OrderTIFGTC, "")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// MARK: openShortPositionTask
+type OpenLimitShortPositionIfTask struct {
+	IfKey         string `json:"ifKey"`
+	IfValue       string `json:"ifValue"`
+	PriceKey      string `json:"priceKey"`
+	AmountUsdKey  string `json:"amountUsdKey"`
+	SymbolKey     string `json:"symbolKey"`
+	ExchangeIdKey string `json:"exchangeIdKey"`
+}
+
+func (t *OpenLimitShortPositionIfTask) Execute(ctx context.Context, memory *AgentMemory) error {
+	ifValue, err := memory.GetAsStr(t.IfKey)
+	if err != nil {
+		return err
+	}
+	if ifValue != t.IfValue {
+		return nil
+	}
+
+	amountUsd, err := memory.GetAsFloat64(t.AmountUsdKey)
+	if err != nil {
+		return err
+	}
+	symbol, err := memory.GetAsStr(t.SymbolKey)
+	if err != nil {
+		return err
+	}
+	exchangeId, err := memory.GetAsStr(t.ExchangeIdKey)
+	if err != nil {
+		return err
+	}
+
+	price, err := memory.GetAsFloat64(t.PriceKey)
+	if err != nil {
+		return err
+	}
+
+	amount := amountUsd / price
+
+	// TODO: make leverage dynamic
+	lev := 5
+	_, err = (*memory.Exchanges[exchangeId]).OpenLimitOrder(symbol, types.OrderSideSell, price, amount, lev, false, types.OrderTIFGTC, "")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // MARK: allTasks
 func GetAllTasks() []AgentTask {
 	return []AgentTask{
@@ -292,18 +422,6 @@ func GetAllTasks() []AgentTask {
 		},
 		{
 			BaseTask: BaseTask{
-				Name:        "askAI",
-				Description: "Ask the AI to answer a question along with the available data in dataKeys and store the answer in outputKey",
-				Parameters: map[string]string{
-					"promptKey": "the key of the prompt to be asked to the AI in the memory. be specific and clear. u should clearly outline the output format",
-					"dataKeys":  "the keys of the data values in the memory separated by comma ex. 'data1,data2,data3'",
-					"outputKey": "the key of the output value in the memory",
-				},
-			},
-			Executable: &AskAITask{},
-		},
-		{
-			BaseTask: BaseTask{
 				Name:        "getBollingerBand",
 				Description: "Get the bollinger band of the asset using kline from klineKey and store the bollinger band in outputKey",
 				Parameters: map[string]string{
@@ -315,8 +433,8 @@ func GetAllTasks() []AgentTask {
 		},
 		{
 			BaseTask: BaseTask{
-				Name:        "openLongPositionIf",
-				Description: "Open a long position of the symbolKey using amountUsd from amountUsdKey IF the value of ifKey in the memory is equal to ifValue",
+				Name:        "openMarketLongPositionIf",
+				Description: "Open a market long position of the symbolKey using amountUsd from amountUsdKey IF the value of ifKey in the memory is equal to ifValue",
 				Parameters: map[string]string{
 					"ifKey":         "the key of the if value in the memory",
 					"ifValue":       "the value of the if value in the memory",
@@ -329,17 +447,72 @@ func GetAllTasks() []AgentTask {
 		},
 		{
 			BaseTask: BaseTask{
-				Name:        "openShortPositionIf",
-				Description: "Open a short position of the symbolKey using amountUsd from amountUsdKey IF the value of ifKey in the memory is equal to ifValue",
+				Name:        "openMarketShortPositionIf",
+				Description: "Open a market short position of the symbolKey using amountUsd from amountUsdKey IF the value of ifKey in the memory is equal to ifValue",
 				Parameters: map[string]string{
 					"ifKey":         "the key of the if value in the memory",
 					"ifValue":       "the value of the if value in the memory",
+					"priceKey":      "the key of the price value in the memory",
 					"amountUsdKey":  "the key of the amount usd position size in the memory",
 					"symbolKey":     "the key of the symbol value in the memory (format 'TICKER_USD' not 'TICKER_USDT')",
 					"exchangeIdKey": "the key of the exchange id value in the memory that is set by the agent",
 				},
 			},
 			Executable: &OpenMarketShortPositionIfTask{},
+		},
+		{
+			BaseTask: BaseTask{
+				Name:        "openLimitLongPositionIf",
+				Description: "Open a limit long position of the symbolKey using amountUsd from amountUsdKey IF the value of ifKey in the memory is equal to ifValue",
+				Parameters: map[string]string{
+					"ifKey":         "the key of the if value in the memory",
+					"ifValue":       "the value of the if value in the memory",
+					"priceKey":      "the key of the price value in the memory",
+					"amountUsdKey":  "the key of the amount usd position size in the memory",
+					"symbolKey":     "the key of the symbol value in the memory (format 'TICKER_USD' not 'TICKER_USDT')",
+					"exchangeIdKey": "the key of the exchange id value in the memory that is set by the agent",
+				},
+			},
+			Executable: &OpenLimitLongPositionIfTask{},
+		},
+		{
+			BaseTask: BaseTask{
+				Name:        "openShortPositionIf",
+				Description: "Open a short position of the symbolKey using amountUsd from amountUsdKey IF the value of ifKey in the memory is equal to ifValue",
+				Parameters: map[string]string{
+					"ifKey":         "the key of the if value in the memory",
+					"ifValue":       "the value of the if value in the memory",
+					"priceKey":      "the key of the price value in the memory",
+					"amountUsdKey":  "the key of the amount usd position size in the memory",
+					"symbolKey":     "the key of the symbol value in the memory (format 'TICKER_USD' not 'TICKER_USDT')",
+					"exchangeIdKey": "the key of the exchange id value in the memory that is set by the agent",
+				},
+			},
+			Executable: &OpenLimitShortPositionIfTask{},
+		},
+		{
+			BaseTask: BaseTask{
+				Name:        "askAI",
+				Description: "Ask the AI to answer a question along with the available data in dataKeys and store the answer as string in outputKey",
+				Parameters: map[string]string{
+					"prompt":    "the prompt to be asked to the AI in the memory. be specific and clear. u MUST CLEARLY outline the output format ex. ONLY OUTPUT 'yes' | 'no' | 'idk'",
+					"dataKeys":  "the keys of the data values in the memory separated by comma ex. 'data1,data2,data3'",
+					"outputKey": "the key of the output value in the memory",
+				},
+			},
+			Executable: &AskAITask{},
+		},
+		{
+			BaseTask: BaseTask{
+				Name:        "aiSetMemory",
+				Description: "Ask the AI a query along with the available data in dataKeys and return json that will be set in memory (map[string]string)",
+				Parameters: map[string]string{
+					"prompt":   "the prompt to be asked to the AI in the memory. be specific and clear. u MUST CLEARLY outline the output format ex. {'name': '...', 'desc': '...'}",
+					"dataKeys": "the keys of the data values in the memory separated by comma ex. 'data1,data2,data3'",
+					"output":   "output value to be set in the memory as map[string]string",
+				},
+			},
+			Executable: &AISetMemoryTask{},
 		},
 	}
 }
