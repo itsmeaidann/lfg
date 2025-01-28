@@ -7,6 +7,8 @@ import (
 	"lfg/pkg/indicator"
 	"lfg/pkg/types"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type BaseTask struct {
@@ -152,12 +154,12 @@ func (t *AskAITask) Execute(ctx context.Context, memory *AgentMemory) error {
 
 	prompt += "\nIMPORTANT: YOUR OUTPUT WILL BE USED TO SET AS A STR IN THE MEMORY AND USED FURTHER. FOLLOW FORMAT IN THE INSTRUCTION STRICTLY"
 
-	aiResponse, err := GetCompletion(ctx, OpenAIClient, prompt)
+	aiResponse, err := GetCompletion(ctx, SharedOpenAIClient, prompt)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("aiResponse: ", aiResponse)
+	log.Println("AskAITask Response: ", aiResponse)
 
 	memory.SetAsStr(t.OutputKey, aiResponse)
 	return nil
@@ -167,7 +169,6 @@ func (t *AskAITask) Execute(ctx context.Context, memory *AgentMemory) error {
 type AISetMemoryTask struct {
 	Prompt   string `json:"prompt"`
 	DataKeys string `json:"dataKeys"`
-	Output   string `json:"output"`
 }
 
 func (t *AISetMemoryTask) Execute(ctx context.Context, memory *AgentMemory) error {
@@ -184,11 +185,11 @@ func (t *AISetMemoryTask) Execute(ctx context.Context, memory *AgentMemory) erro
 	prompt += "\n\nUSER INSTRUCTION: " + t.Prompt
 	prompt += "\nIMPORTANT: YOUR OUTPUT WILL BE USED TO SET AS A JSON IN THE MEMORY AND USED FURTHER. FOLLOW FORMAT IN THE INSTRUCTION STRICTLY"
 
-	aiResponse, err := GetStructuredCompletion(ctx, OpenAIClient, prompt)
+	aiResponse, err := GetStructuredCompletion(ctx, SharedOpenAIClient, prompt)
 	if err != nil {
 		return err
 	}
-	fmt.Println("aiResponse: ", aiResponse)
+	log.Println("AISetMemoryTask Response: ", aiResponse)
 
 	for key, value := range aiResponse {
 		memory.SetAsStr(key, value)
@@ -509,7 +510,6 @@ func GetAllTasks() []AgentTask {
 				Parameters: map[string]string{
 					"prompt":   "the prompt to be asked to the AI in the memory. be specific and clear. u MUST CLEARLY outline the output format ex. {'name': '...', 'desc': '...'}",
 					"dataKeys": "the keys of the data values in the memory separated by comma ex. 'data1,data2,data3'",
-					"output":   "output value to be set in the memory as map[string]string",
 				},
 			},
 			Executable: &AISetMemoryTask{},
