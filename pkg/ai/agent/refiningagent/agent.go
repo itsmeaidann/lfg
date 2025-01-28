@@ -8,6 +8,8 @@ import (
 	"lfg/pkg/ai/agent/planningagent"
 	"lfg/pkg/types"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/openai/openai-go"
 )
 
@@ -26,7 +28,7 @@ func NewRefiningAgent(client *openai.Client, availableExchangesId []string) *Ref
 }
 
 func (a *RefiningAgent) Execute(ctx context.Context, question string, executionPlan *planningagent.ExecutionPlan, userComment string) (*Feedback, error) {
-	fmt.Println("Refining execution plan...")
+	log.Println("Refining execution plan...")
 	tasks := ai.GetAllTaskInterfaces()
 	refinerPrompt, err := getRefinerPrompt(question, executionPlan, tasks, a.availableExchangesId, userComment)
 	if err != nil {

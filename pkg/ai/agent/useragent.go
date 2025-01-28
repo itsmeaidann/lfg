@@ -81,7 +81,7 @@ func (a *UserAgent) Plan(ctx context.Context) error {
 
 	// Wait for user feedback
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Enter your comment (leave blank for no comment):")
+	log.Println("Enter your comment (leave blank for no comment):")
 	userComment, err := reader.ReadString('\n')
 	if err != nil {
 		return err

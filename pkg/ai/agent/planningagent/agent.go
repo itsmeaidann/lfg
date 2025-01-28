@@ -3,9 +3,10 @@ package planningagent
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"lfg/pkg/ai"
 	"lfg/pkg/types"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/openai/openai-go"
 )
@@ -25,8 +26,7 @@ func NewPlanningAgent(client *openai.Client, availableExchangesId []string) *Pla
 }
 
 func (a *PlanningAgent) Execute(ctx context.Context, question string) (*ExecutionPlan, error) {
-	fmt.Println("Generating execution plan...")
-	fmt.Println(question)
+	log.Println("Generating execution plan...")
 	tasks := ai.GetAllTaskInterfaces()
 	systemPrompt, err := getSystemPrompt(question, a.messages, tasks, a.availableExchangesId)
 	if err != nil {

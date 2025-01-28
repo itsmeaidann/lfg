@@ -7,6 +7,8 @@ import (
 	"lfg/pkg/indicator"
 	"lfg/pkg/types"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type BaseTask struct {
@@ -157,7 +159,7 @@ func (t *AskAITask) Execute(ctx context.Context, memory *AgentMemory) error {
 		return err
 	}
 
-	fmt.Println("aiResponse: ", aiResponse)
+	log.Println("AskAITask Response: ", aiResponse)
 
 	memory.SetAsStr(t.OutputKey, aiResponse)
 	return nil
@@ -187,7 +189,7 @@ func (t *AISetMemoryTask) Execute(ctx context.Context, memory *AgentMemory) erro
 	if err != nil {
 		return err
 	}
-	fmt.Println("aiResponse: ", aiResponse)
+	log.Println("AISetMemoryTask Response: ", aiResponse)
 
 	for key, value := range aiResponse {
 		memory.SetAsStr(key, value)
